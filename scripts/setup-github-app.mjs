@@ -67,9 +67,12 @@ async function main() {
     setup_on_update: true,
     setup_url: setupUrl,
     hook_attributes: {
+      // GitHub's manifest schema permits only `url` and `active` here; sending
+      // `secret` is rejected with `"secret" is not a permitted key`. GitHub
+      // generates the webhook secret itself and returns it from the manifest
+      // conversion as `webhook_secret`, which is what we persist below.
       url: webhookUrl,
       active: true,
-      secret: webhookSecret,
     },
   };
 
@@ -102,7 +105,9 @@ async function main() {
     GITHUB_APP_CLIENT_ID: converted.client_id,
     GITHUB_APP_CLIENT_SECRET: converted.client_secret,
     GITHUB_APP_PRIVATE_KEY: wrapQuoted(escapeNewlines(converted.pem || "")),
-    GITHUB_APP_WEBHOOK_SECRET: webhookSecret,
+    // Must be the secret GitHub actually signs webhooks with, not a locally
+    // generated one — otherwise every signature verification fails.
+    GITHUB_APP_WEBHOOK_SECRET: converted.webhook_secret || webhookSecret,
   };
 
   if (envPath) {
