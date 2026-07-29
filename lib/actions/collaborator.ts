@@ -13,8 +13,8 @@ import { db } from "@/db";
 import { and, eq, sql } from "drizzle-orm";
 import { collaboratorInviteTable, collaboratorTable } from "@/db/schema";
 import { z } from "zod";
-import { randomBytes } from "crypto";
 import { findVerifiedUserByEmail, normalizeEmail } from "@/lib/collaborator-access";
+import { createCollaboratorInviteUrl } from "@/lib/collaborator-invite";
 
 const parseInviteEmails = (raw: FormDataEntryValue | null) => {
   const value = typeof raw === "string" ? raw : "";
@@ -54,58 +54,6 @@ const assertRepoInInstallation = async (
     repoAccess,
     installation: installations[0],
   };
-};
-
-const generateInviteToken = () => {
-  const alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  const bytes = randomBytes(32);
-  let token = "";
-
-  for (let i = 0; i < 32; i += 1) {
-    token += alphabet[bytes[i] % alphabet.length];
-  }
-
-  return token;
-};
-
-export const createCollaboratorInviteUrl = async ({
-  email,
-  owner,
-  repo,
-  baseUrl,
-}: {
-  email: string;
-  owner: string;
-  repo: string;
-  baseUrl: string;
-}) => {
-  const token = generateInviteToken();
-  const expiresAt = new Date(
-    Date.now() + ((Number(process.env.COLLABORATOR_INVITE_LINK_EXPIRES_IN) || 86400) * 1000),
-  );
-
-  await db
-    .delete(collaboratorInviteTable)
-    .where(
-      and(
-        sql`lower(${collaboratorInviteTable.email}) = lower(${email})`,
-        sql`lower(${collaboratorInviteTable.owner}) = lower(${owner})`,
-        sql`lower(${collaboratorInviteTable.repo}) = lower(${repo})`,
-      ),
-    );
-
-  await db.insert(collaboratorInviteTable).values({
-    token,
-    email,
-    owner,
-    repo,
-    expiresAt,
-  });
-
-  const inviteUrl = new URL("/sign-in/collaborator", baseUrl);
-  inviteUrl.searchParams.set("token", token);
-
-  return inviteUrl.toString();
 };
 
 // Invite a collaborator to a repository.

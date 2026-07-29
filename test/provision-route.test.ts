@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseProvisionBody } from "../app/api/provision/route";
+import { parseProvisionBody } from "../lib/provision-request";
 
 test("accepts a well-formed body", () => {
   const result = parseProvisionBody({
@@ -12,6 +12,16 @@ test("accepts a well-formed body", () => {
   if (!result.ok) return;
   assert.equal(result.value.owner, "osa4589");
   assert.equal(result.value.repo, "example-client");
+  assert.equal(result.value.email, "client@example.com");
+});
+
+test("normalizes the email to lowercase", () => {
+  const result = parseProvisionBody({
+    repo: "osa4589/example-client",
+    email: "  Client@Example.COM  ",
+  });
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
   assert.equal(result.value.email, "client@example.com");
 });
 

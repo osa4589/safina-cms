@@ -21,7 +21,14 @@ export function proxy(request: NextRequest) {
 		return NextResponse.next();
 	}
 
-	if (pathname.startsWith("/api/") && pathname !== "/api/webhook/github" && request.method !== "GET") {
+	// Machine-to-machine endpoints: a server-to-server fetch has no browser Origin
+	// header, so these routes cannot satisfy the CSRF origin check and do not rely
+	// on it. Each authenticates its caller itself — /api/webhook/github by GitHub's
+	// webhook signature, /api/provision by constant-time bearer service-token
+	// comparison in verifyServiceToken.
+	const isServiceEndpoint = pathname === "/api/webhook/github" || pathname === "/api/provision";
+
+	if (pathname.startsWith("/api/") && !isServiceEndpoint && request.method !== "GET") {
 		const originHeader = request.headers.get("Origin");
 		const hostHeader = request.headers.get("Host");
 		if (!originHeader || !hostHeader || !isAllowedOrigin(originHeader, hostHeader)) {
