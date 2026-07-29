@@ -1,6 +1,9 @@
 import nextCoreWebVitals from "eslint-config-next/core-web-vitals";
 
 const config = [
+  // Generated Cloudflare Worker build output — never lint it (it is large
+  // enough to exhaust ESLint's heap).
+  { ignores: [".open-next/**", ".wrangler/**"] },
   ...nextCoreWebVitals,
   {
     rules: {

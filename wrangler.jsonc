@@ -1,0 +1,32 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "main": ".open-next/worker.js",
+  "name": "safina-cms",
+  // No `account_id` here on purpose: this repository is public. Supply the
+  // account at deploy time via the CLOUDFLARE_ACCOUNT_ID environment variable.
+  "compatibility_date": "2026-07-19",
+  // `nodejs_compat` is load-bearing: postgres, nodemailer and
+  // lib/collaborator-invite.ts (randomBytes from "crypto") need Node APIs.
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "services": [
+    {
+      // Self-reference service binding; the service name must match the worker name.
+      // see https://opennext.js.org/cloudflare/caching
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "safina-cms"
+    }
+  ],
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      // Placeholder. Filled in with the real Hyperdrive config id once the owner
+      // supplies the Supabase database credential:
+      //   npx wrangler hyperdrive create safina-cms-db --connection-string="<pooler-url>"
+      "id": "PLACEHOLDER_HYPERDRIVE_ID"
+    }
+  ]
+}

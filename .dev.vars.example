@@ -1,0 +1,25 @@
+# Copy to `.dev.vars` for local Worker runs (`npm run preview`).
+# Names only — never commit real values. In production set these with
+# `npx wrangler secret put <NAME>`.
+#
+# The Cloudflare account is NOT stored in wrangler.jsonc (this repo is public).
+# Export it in the deploy shell instead:
+#   CLOUDFLARE_ACCOUNT_ID=
+
+BETTER_AUTH_SECRET=
+CRYPTO_KEY=
+GITHUB_APP_ID=
+GITHUB_APP_NAME=
+GITHUB_APP_PRIVATE_KEY=
+GITHUB_APP_CLIENT_ID=
+GITHUB_APP_CLIENT_SECRET=
+GITHUB_APP_WEBHOOK_SECRET=
+EMAIL_PROVIDER=brevo
+BREVO_API_KEY=
+EMAIL_FROM=
+EMAIL_FROM_NAME=
+PROVISION_SERVICE_TOKEN=
+BASE_URL=https://cms.safinastudio.com
+# Only used off-Workers (local dev, tests, migrations). On Workers the
+# connection string comes from the HYPERDRIVE binding.
+DATABASE_URL=
