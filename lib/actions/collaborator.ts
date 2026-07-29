@@ -68,7 +68,7 @@ const generateInviteToken = () => {
   return token;
 };
 
-const createCollaboratorInviteUrl = async ({
+export const createCollaboratorInviteUrl = async ({
   email,
   owner,
   repo,
