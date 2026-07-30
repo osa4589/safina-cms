@@ -19,14 +19,14 @@
       "binding": "WORKER_SELF_REFERENCE",
       "service": "safina-cms"
     }
-  ],
-  "hyperdrive": [
-    {
-      "binding": "HYPERDRIVE",
-      // Placeholder. Filled in with the real Hyperdrive config id once the owner
-      // supplies the Supabase database credential:
-      //   npx wrangler hyperdrive create safina-cms-db --connection-string="<pooler-url>"
-      "id": "PLACEHOLDER_HYPERDRIVE_ID"
-    }
   ]
+  // No `hyperdrive` binding: the deploy token lacks Hyperdrive:Edit, so the
+  // config could not be created. Instead DATABASE_URL is a Worker secret
+  // pointing at Supabase's Supavisor pooler (port 6543), which provides the
+  // server-side connection pooling Hyperdrive would have. db/index.ts already
+  // prefers a HYPERDRIVE binding when present, so adding one later is purely
+  // additive — grant the token Hyperdrive:Edit, run
+  //   npx wrangler hyperdrive create safina-cms-db --connection-string="<pooler-url>"
+  // and re-add the binding block here. `prepare: false` is already set in
+  // db/index.ts, which transaction-mode pooling requires either way.
 }
