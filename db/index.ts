@@ -23,19 +23,24 @@ const resolveConnectionString = (): string => {
 };
 
 // Safina CMS tables live in a dedicated `cms` schema so they cannot collide
-// with the 48 unrelated tables in `public`. The Drizzle schema uses unqualified
-// table names, so search_path must be set on every connection. It is sent as a
-// startup parameter rather than a URL option because Hyperdrive does not
-// guarantee passthrough of `?options=` from its origin connection string.
-const DB_SCHEMA = process.env.POSTGRES_SCHEMA || "cms";
-
+// with the unrelated tables in `public`, and the Drizzle models emit
+// UNQUALIFIED table names — so `cms` has to be on the search path.
+//
+// It is deliberately NOT set here. Every connection pooler rejects or drops a
+// per-connection search_path: Supavisor transaction mode fails the connection
+// outright ("unsupported startup parameter in options: search_path"), Supavisor
+// session mode silently ignores it, and sending it as a startup parameter
+// through Hyperdrive breaks the connection too. Instead it is a ROLE default
+// applied by Postgres at connect time, which no pooler can strip:
+//   ALTER ROLE postgres IN DATABASE postgres
+//     SET search_path TO "$user", public, extensions, cms;
+// (migration: append_cms_to_role_search_path_for_safina_cms)
 const client =
   globalThis.__pagesCmsPostgresClient
   ?? postgres(resolveConnectionString(), {
     // Keep conservative pool size in dev to avoid local connection spikes.
     max: parseInt(process.env.POSTGRES_MAX_CONNECTIONS || "5", 10),
     prepare: false, // Required: Hyperdrive pools connections, so no prepared statements.
-    connection: { search_path: DB_SCHEMA },
   });
 
 if (process.env.NODE_ENV !== "production") {

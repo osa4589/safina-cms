@@ -19,14 +19,17 @@
       "binding": "WORKER_SELF_REFERENCE",
       "service": "safina-cms"
     }
+  ],
+  // Pools Postgres connections so each Worker isolate does not open its own.
+  // Origin is the DIRECT Supabase endpoint (5432): both Supavisor modes break
+  // search_path — transaction mode rejects it outright, session mode silently
+  // ignores it — and Drizzle emits unqualified table names.
+  // db/index.ts falls back to DATABASE_URL when this binding is absent, so
+  // removing this block reverts to a known-good direct-connection setup.
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "dfa795cdbe7b4f41a645c7b492525b3d"
+    }
   ]
-  // No `hyperdrive` binding: the deploy token lacks Hyperdrive:Edit, so the
-  // config could not be created. Instead DATABASE_URL is a Worker secret
-  // pointing at Supabase's Supavisor pooler (port 6543), which provides the
-  // server-side connection pooling Hyperdrive would have. db/index.ts already
-  // prefers a HYPERDRIVE binding when present, so adding one later is purely
-  // additive — grant the token Hyperdrive:Edit, run
-  //   npx wrangler hyperdrive create safina-cms-db --connection-string="<pooler-url>"
-  // and re-add the binding block here. `prepare: false` is already set in
-  // db/index.ts, which transaction-mode pooling requires either way.
 }
