@@ -25,7 +25,7 @@ Upstream base commit is recorded in `UPSTREAM_BASE`.
 | Database | Supabase project `cieepqhhjibduwesqgme`, **`cms` schema**, reached through Hyperdrive `dfa795cdbe7b4f41a645c7b492525b3d` |
 | Mail | Brevo HTTP API (`lib/mailer-brevo.ts`), sender `hello@safinastudio.com` |
 | GitHub App | **Safina Studio CMS**, App ID `4429376`, owned by `osa4589` |
-| Client repos | the **`safina-clients`** org (deliberately NOT `osa4589` — see below) |
+| Client repos | **`osa4589`** — the App is **private to osa4589** ("Only on this account"), so it cannot be installed on `safina-clients` at all; a 2026-09-06 attempt 404'd. Each new repo must be added to installation `149943888` (sudo/passkey-gated, 403 for OAuth tokens). Moving to `safina-clients` requires first making the App public. |
 
 Cloudflare Workers Paid ($5/mo, flat, account-level) is **required**: the bundle
 is ~6.9 MB against a 3 MB free-tier limit, and the free tier's 10 ms CPU budget
@@ -118,6 +118,32 @@ the schema the tables actually live in.
 **4. Worker secrets do not propagate instantly.** After `wrangler secret put`,
 some isolates serve the old value briefly. A single failed probe right after a
 secret change is expected — re-run before debugging.
+
+**5. GitHub issues App private keys as PKCS#1; WebCrypto only accepts PKCS#8.**
+`lib/token.ts` → `@octokit/app` → `universal-github-app-jwt` throws on
+`-----BEGIN RSA PRIVATE KEY-----`. Only `lib/provision-installation.ts` converts it,
+which is why provisioning returned 200 while every repo read 500'd for two months.
+Store `GITHUB_APP_PRIVATE_KEY` as PKCS#8 (`openssl pkcs8 -topk8 -nocrypt`) and prove
+it is the same key first: `openssl rsa -in <f> -pubout | openssl sha256` must match.
+
+**6. `CRYPTO_KEY` must be `openssl rand -base64 32`.** `lib/crypto.ts` does
+`atob(CRYPTO_KEY)`; anything that is not valid base64 throws `InvalidCharacterError`
+at the moment a freshly minted installation token is encrypted for storage. Rotating
+it destroys every row in `github_installation_token` and `account` — check they are
+empty first.
+
+**7. The database client must be per request.** On Workers a socket belongs to the
+request that opened it. A module-scope `postgres()` client is bound to the first
+request on each isolate and every later request on that isolate is refused before any
+I/O (tail shows cancellation at 3-6 ms). `db/index.ts` now creates the client once per
+request, keyed on the `ExecutionContext` in a WeakMap, behind a `Proxy` so `db` stays
+one export. Measured 8/20 → 20/20. Do not "fix" this by memoising on `globalThis` —
+that was measured as a no-op.
+
+**8. `atomicVerifyOTP` (better-auth email-otp) deletes the stored code BEFORE
+verifying it.** Any transient server error burns the user's one-time code, and
+re-entering it presents as an endless redirect to sign-in. Upstream ordering bug; moot
+while sign-in is healthy, but worth reporting.
 
 ## Known gaps
 
