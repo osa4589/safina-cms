@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
-import { getToken } from "@/lib/token";
+import { getToken, getCollaboratorBranch } from "@/lib/token";
 import { RepoProvider } from "@/contexts/repo-context";
 import { getServerSession } from "@/lib/session-server";
 import { getRepoSnapshot } from "@/lib/github-cache-file";
@@ -33,7 +33,16 @@ export default async function Layout({
     const { token } = await getToken(user, owner, repo);
     if (!token) throw new Error("Token not found");
 
-    const repoInfo = await getRepoSnapshot(owner, repo, token);
+    const rawRepoInfo = await getRepoSnapshot(owner, repo, token);
+
+    /* A collaborator confined to one branch is shown only that branch, and lands
+       on it. getToken already refuses everything else server-side; this is so the
+       UI stops offering a door that would only return a 403 — and so the branch
+       switcher cannot suggest that editing the live site is a normal thing to do. */
+    const scopedBranch = await getCollaboratorBranch(user, owner, repo);
+    const repoInfo = scopedBranch
+      ? { ...rawRepoInfo, branches: [scopedBranch], defaultBranch: scopedBranch }
+      : rawRepoInfo;
     const branchNames = repoInfo.branches ?? [];
     
     if (branchNames.length === 0) {

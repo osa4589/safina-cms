@@ -15,8 +15,26 @@ import { User } from "@/types/user";
 import { getGithubAccount } from "@/lib/github-account";
 import { createHttpError } from "@/lib/api-error";
 import { collaboratorMatchesUserForRepo } from "@/lib/collaborator-access";
+import { isBranchAllowed } from "@/lib/branch-scope";
 
 const installationTokenRefreshInFlight = new Map<number, Promise<string>>();
+
+/* Which branch a collaborator is confined to, or null for full-repo access.
+ *
+ * collaboratorTable.branch shipped in the schema but was never read: access was
+ * repo-scoped, so a client invited to edit a draft could switch to the branch
+ * behind their live site and edit it directly, with nothing in the UI marking
+ * the difference. Reading it here makes the column mean what it says. */
+const getCollaboratorBranch = cache(async (
+  user: Pick<User, "id" | "email">,
+  owner: string,
+  repo: string,
+): Promise<string | null> => {
+  const permission = await db.query.collaboratorTable.findFirst({
+    where: collaboratorMatchesUserForRepo(user, owner, repo),
+  });
+  return permission?.branch ?? null;
+});
 
 // Get a token for a user (including collagborators who need to provide an owner/repo scope).
 const getToken = cache(async (
@@ -24,6 +42,7 @@ const getToken = cache(async (
   owner: string,
   repo: string,
   verifyGithubAccess: boolean = false,
+  branch?: string,
 ) => {
   const githubAccount = await getGithubAccount(user.id);
   if (githubAccount?.accessToken) {
@@ -38,6 +57,19 @@ const getToken = cache(async (
     where: collaboratorMatchesUserForRepo(user, owner, repo),
   });
   if (permission) {
+    /* THE branch boundary. A collaborator row carrying a branch may act on that
+       branch and no other — checked here rather than in the UI, because the UI
+       is a suggestion and this is the only thing an address-bar edit cannot get
+       past. Callers that are not branch-scoped (listing repos, collaborators)
+       pass no branch and are unaffected; a GitHub user with real repo access
+       returned above and is never confined. */
+    if (!isBranchAllowed(permission.branch, branch)) {
+      throw createHttpError(
+        `You can only make changes on the "${permission.branch}" branch of "${owner}/${repo}".`,
+        403,
+      );
+    }
+
     const installationToken = await getInstallationToken(owner, repo);
 
     return {
@@ -156,4 +188,4 @@ const canAccessRepoWithToken = async (
   }
 };
 
-export { getInstallationToken, getUserToken, getToken };
+export { getInstallationToken, getUserToken, getToken, getCollaboratorBranch };

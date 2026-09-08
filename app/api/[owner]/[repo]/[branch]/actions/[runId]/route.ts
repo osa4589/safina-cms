@@ -155,7 +155,7 @@ export async function GET(
     let syncedRow = row;
 
     if (row.status !== "completed") {
-      const { token } = await getToken(user, params.owner, params.repo, true);
+      const { token } = await getToken(user, params.owner, params.repo, true, params.branch);
       const octokit = createOctokitInstance(token);
       if (!row.workflowRunId) {
         const workflowRun = await findWorkflowRun(
@@ -241,7 +241,7 @@ export async function POST(
       throw createHttpError("Action run not found.", 404);
     }
 
-    const { token } = await getToken(user, params.owner, params.repo, true);
+    const { token } = await getToken(user, params.owner, params.repo, true, params.branch);
     const octokit = createOctokitInstance(token);
     const isGithubUser = hasGithubIdentity(user);
     const isOwnRun = (row.triggeredBy as { userId?: string | null } | null)?.userId === user.id;

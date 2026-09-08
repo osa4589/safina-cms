@@ -34,7 +34,7 @@ export async function POST(
     if ("response" in sessionResult) return sessionResult.response;
     const user = sessionResult.user;
 
-    const { token } = await getToken(user, params.owner, params.repo, true);
+    const { token } = await getToken(user, params.owner, params.repo, true, params.branch);
     if (!token) throw new Error("Token not found");
 
     const normalizedPath = normalizePath(params.path);
@@ -456,7 +456,7 @@ export async function DELETE(
     if ("response" in sessionResult) return sessionResult.response;
     const user = sessionResult.user;
 
-    const { token } = await getToken(user, params.owner, params.repo, true);
+    const { token } = await getToken(user, params.owner, params.repo, true, params.branch);
     if (!token) throw new Error("Token not found");
 
     if (!isContentOperationAllowed("delete", { scope: "settings" }) && params.path === ".pages.yml") {

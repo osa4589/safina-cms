@@ -87,7 +87,11 @@ export async function GET(
     for (const repo of collaboratorRepos) {
       const key = `${repo.owner.toLowerCase()}::${repo.repo.toLowerCase()}`;
       if (!reposByKey.has(key)) {
-        reposByKey.set(key, repo);
+        /* A branch-scoped collaborator must LAND on their branch: the repo page
+           redirects to defaultBranch, and a raw collaborator row has none, so
+           without this they were routed to the repository default — the live
+           site — and every link in the app pointed there. */
+        reposByKey.set(key, repo.branch ? { ...repo, defaultBranch: repo.branch } : repo);
       }
     }
 

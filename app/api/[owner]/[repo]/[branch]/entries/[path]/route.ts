@@ -30,7 +30,7 @@ export async function GET(
     if ("response" in sessionResult) return sessionResult.response;
     const user = sessionResult.user;
 
-    const { token } = await getToken(user, params.owner, params.repo);
+    const { token } = await getToken(user, params.owner, params.repo, false, params.branch);
     if (!token) throw createHttpError("Token not found", 401);
 
     const searchParams = request.nextUrl.searchParams;

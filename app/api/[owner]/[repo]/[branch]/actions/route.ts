@@ -202,7 +202,7 @@ export async function GET(
     if ("response" in sessionResult) return sessionResult.response;
     const user = sessionResult.user;
     const isGithubUser = hasGithubIdentity(user);
-    const { token } = await getToken(user, params.owner, params.repo, true);
+    const { token } = await getToken(user, params.owner, params.repo, true, params.branch);
     const octokit = createOctokitInstance(token);
 
     const url = new URL(request.url);
@@ -350,7 +350,7 @@ export async function POST(
     if ("response" in sessionResult) return sessionResult.response;
     const user = sessionResult.user;
 
-    const { token } = await getToken(user, params.owner, params.repo, true);
+    const { token } = await getToken(user, params.owner, params.repo, true, params.branch);
     const octokit = createOctokitInstance(token);
 
     const body = (await request.json()) as {

@@ -21,7 +21,7 @@ export async function POST(
     if ("response" in sessionResult) return sessionResult.response;
     const user = sessionResult.user;
 
-    const { token } = await getToken(user, params.owner, params.repo, true);
+    const { token } = await getToken(user, params.owner, params.repo, true, params.branch);
     if (!token) throw createHttpError("Token not found", 401);
 
     const data: any = await request.json();
