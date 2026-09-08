@@ -82,13 +82,19 @@ npm run deploy
 node -v && npx wrangler deployments list --name safina-cms | head -3   # PROVE it landed
 ```
 
-**Node 22+ is required, and the failure is silent.** This Mac's default `node` is
-v20.19.5; wrangler refuses to run below 22. The npm script is
-`opennextjs-cloudflare build && opennextjs-cloudflare deploy`, and the deploy step
-prints its error but the script still **exits 0** — so a deploy that never happened
-looks exactly like a successful one. `nvm` has v22.22.1; put it on `PATH` as above.
-**Never conclude "deployed" from the exit code here** — check the version list, or
-the live behaviour. (LESSONS #26/#30/#35 recurring: the artifact, not the exit status.)
+**Node 22+ is required.** This Mac's default `node` is v20.19.5 and wrangler refuses
+to run below 22; `nvm` has v22.22.1, so put it on `PATH` as above. The build succeeds
+either way — only the deploy step fails — so `.open-next/worker.js` gets rebuilt and
+everything *looks* like it worked until you check what is actually live.
+
+**All three env vars are required and each fails at a different stage**, so fixing one
+just moves the error: no Hyperdrive string fails during the build, no
+`CLOUDFLARE_API_TOKEN` fails at the deploy call. Export all three, every time.
+
+`npm run deploy` **does** exit non-zero on failure — an earlier revision of this file
+claimed otherwise, having misread a shell wrapper's exit code (the `$?` of a trailing
+`grep`, not of npm). Still verify by artifact rather than status:
+`npx wrangler deployments list --name safina-cms | head -3`.
 
 The third variable is **not optional** — OpenNext runs a local Hyperdrive
 emulation check at build time and fails without it. It is deliberately not
