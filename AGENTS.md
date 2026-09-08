@@ -74,11 +74,21 @@ payment webhooks retry.
 ## Deploying
 
 ```bash
+export PATH="$HOME/.nvm/versions/node/v22.22.1/bin:$PATH"   # see below
 export CLOUDFLARE_API_TOKEN=$(cat ~/SafinaStudio/.secrets/cloudflare-api-token)
 export CLOUDFLARE_ACCOUNT_ID=f877a5957436eb2d2fea32f0f3d75562
 export CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE="$(cat ~/SafinaStudio/.secrets/safina-cms-database-url)"
 npm run deploy
+node -v && npx wrangler deployments list --name safina-cms | head -3   # PROVE it landed
 ```
+
+**Node 22+ is required, and the failure is silent.** This Mac's default `node` is
+v20.19.5; wrangler refuses to run below 22. The npm script is
+`opennextjs-cloudflare build && opennextjs-cloudflare deploy`, and the deploy step
+prints its error but the script still **exits 0** — so a deploy that never happened
+looks exactly like a successful one. `nvm` has v22.22.1; put it on `PATH` as above.
+**Never conclude "deployed" from the exit code here** — check the version list, or
+the live behaviour. (LESSONS #26/#30/#35 recurring: the artifact, not the exit status.)
 
 The third variable is **not optional** — OpenNext runs a local Hyperdrive
 emulation check at build time and fails without it. It is deliberately not
