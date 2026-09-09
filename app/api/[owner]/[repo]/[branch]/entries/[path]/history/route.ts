@@ -3,7 +3,7 @@ import { createOctokitInstance } from "@/lib/utils/octokit";
 import { getSchemaByName } from "@/lib/schema";
 import { getConfig } from "@/lib/config-store";
 import { getFileExtension, normalizePath } from "@/lib/utils/file";
-import { assertGithubIdentity } from "@/lib/authz-shared";
+import { requireGithubRepoWriteAccess } from "@/lib/authz-server";
 import { getToken } from "@/lib/token";
 import { createHttpError, toErrorResponse } from "@/lib/api-error";
 import { requireApiUserSession } from "@/lib/session-server";
@@ -34,7 +34,8 @@ export async function GET(
     
     const normalizedPath = normalizePath(params.path);
     if (normalizedPath === ".pages.yml") {
-      assertGithubIdentity(user, "Only GitHub users can access settings history.");
+      // See entries/[path]/route.ts: a linked GitHub account is not authority over this repo.
+      await requireGithubRepoWriteAccess(user, params.owner, params.repo, "Only the site's GitHub owners can access settings history.");
     }
     
     if (name) {

@@ -7,7 +7,7 @@ import { stringify, parse } from "@/lib/serialization";
 import { deepMap, generateZodSchema, getSchemaByName, sanitizeObject } from "@/lib/schema";
 import { getConfig, updateConfig } from "@/lib/config-store";
 import { getFileExtension, getFileName, normalizePath, serializedTypes, getParentPath } from "@/lib/utils/file";
-import { assertGithubIdentity } from "@/lib/authz-shared";
+import { requireGithubRepoWriteAccess } from "@/lib/authz-server";
 import { getToken } from "@/lib/token";
 import { updateFileCache } from "@/lib/github-cache-file";
 import { createHttpError, toErrorResponse } from "@/lib/api-error";
@@ -23,6 +23,9 @@ import { requireApiUserSession } from "@/lib/session-server";
  * 
  * Requires authentication.
  */
+
+const MAX_MEDIA_MB = 10;
+const MAX_MEDIA_BASE64_LENGTH = Math.ceil((MAX_MEDIA_MB * 1024 * 1024 * 4) / 3);
 
 export async function POST(
   request: Request,
@@ -179,11 +182,21 @@ export async function POST(
             !schema.extensions.includes(getFileExtension(normalizedPath))
           ) throw new Error(`Invalid extension "${getFileExtension(normalizedPath)}" for media.`);
 
+          /* Nothing anywhere limited upload size, so a client's 12 MB phone
+             photo committed as-is into the repo — forever, in history, and
+             served to every visitor. Base64 is 4/3 of the file size. */
+          if (typeof data.content === "string" && data.content.length > MAX_MEDIA_BASE64_LENGTH) {
+            throw createHttpError(
+              `That file is larger than ${MAX_MEDIA_MB} MB. Resize or compress it first — most photos can be under 1 MB with no visible difference.`,
+              413,
+            );
+          }
           contentBase64 = data.content;
         }
         break;
       case "settings":
-        assertGithubIdentity(user, "Only GitHub users can manage settings.");
+        // A linked GitHub account is not authority over this repo; push access is.
+        await requireGithubRepoWriteAccess(user, params.owner, params.repo, "Only the site's GitHub owners can manage settings.");
         if (normalizedPath !== ".pages.yml") throw new Error(`Invalid path "${params.path}" for settings.`);
         if (!data.sha && !isContentOperationAllowed("create", { scope: "settings" })) {
           throw createHttpError(`Creating the settings file isn't allowed.`, 403);

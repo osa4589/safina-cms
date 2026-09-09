@@ -5,7 +5,7 @@ import { deepMap, getSchemaByName } from "@/lib/schema";
 import { parse } from "@/lib/serialization";
 import { getConfig } from "@/lib/config-store";
 import { getFileExtension, normalizePath } from "@/lib/utils/file";
-import { assertGithubIdentity } from "@/lib/authz-shared";
+import { requireGithubRepoWriteAccess } from "@/lib/authz-server";
 import { getToken } from "@/lib/token";
 import { createHttpError, toErrorResponse } from "@/lib/api-error";
 import { requireApiUserSession } from "@/lib/session-server";
@@ -41,7 +41,11 @@ export async function GET(
     
     const normalizedPath = normalizePath(params.path);
     if (normalizedPath === ".pages.yml") {
-      assertGithubIdentity(user, "Only GitHub users can access settings.");
+      /* hasGithubIdentity() only checks that SOME GitHub account is linked, and
+         account linking is open to every signed-in user — so a client could
+         link any GitHub account and satisfy it. The gate that matters is whether
+         that GitHub account can push to THIS repository. */
+      await requireGithubRepoWriteAccess(user, params.owner, params.repo, "Only the site's GitHub owners can access settings.");
     }
 
     if (!name && normalizedPath !== ".pages.yml") {
