@@ -1,14 +1,15 @@
 import { getFileName, normalizePath } from "@/lib/utils/file";
+import { BRAND } from "@/lib/brand";
 
 type CommitAction = "create" | "update" | "delete" | "rename";
 type CommitTemplates = Partial<Record<CommitAction, string>>;
 type CommitIdentity = "app" | "user";
 
 const defaultCommitTemplates: Record<CommitAction, string> = {
-  create: "Create {path} (via Pages CMS)",
-  update: "Update {path} (via Pages CMS)",
-  delete: "Delete {path} (via Pages CMS)",
-  rename: "Rename {oldPath} to {newPath} (via Pages CMS)",
+  create: `Create {path} (via ${BRAND.name})`,
+  update: `Update {path} (via ${BRAND.name})`,
+  delete: `Delete {path} (via ${BRAND.name})`,
+  rename: `Rename {oldPath} to {newPath} (via ${BRAND.name})`,
 };
 
 const getCommitTemplates = (configObject?: Record<string, any>): CommitTemplates => {

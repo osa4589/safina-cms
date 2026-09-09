@@ -20,6 +20,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import packageJson from "../package.json";
+import { BRAND } from "@/lib/brand";
 
 const releaseRef = process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_REF;
 const inferredTagVersion =
@@ -28,7 +29,7 @@ const version =
   process.env.NEXT_PUBLIC_APP_VERSION ??
   inferredTagVersion ??
   packageJson.version;
-const UPDATE_DOCS_URL = "https://pagescms.org/docs";
+const UPDATE_DOCS_URL = `${BRAND.upstream.url}/docs`;
 
 export function About() {
   const [open, setOpen] = useState(false);
@@ -84,11 +85,11 @@ export function About() {
                     <path d="M0 4.8C0 2.14903 2.14903 0 4.8 0H12.0118C13.2848 0 14.5057 0.505713 15.4059 1.40589L22.5941 8.59411C23.4943 9.49429 24 10.7152 24 11.9882V19.2C24 21.851 21.851 24 19.2 24H4.8C2.14903 24 0 21.851 0 19.2V4.8Z"></path>
                   </svg>
                 </span>
-                <span className="sr-only">About Pages CMS</span>
+                <span className="sr-only">About {BRAND.name}</span>
               </Button>
             </DialogTrigger>
           </TooltipTrigger>
-          <TooltipContent>About Pages CMS</TooltipContent>
+          <TooltipContent>About {BRAND.name}</TooltipContent>
         </Tooltip>
       </TooltipProvider>
       <DialogContent className="w-[20rem] max-w-[calc(100vw-2rem)]">
@@ -104,12 +105,9 @@ export function About() {
             </svg>
           </div>
           <DialogTitle className="text-base font-semibold">
-            Pages CMS
+            {BRAND.name}
           </DialogTitle>
-          <DialogDescription>
-            Open source CMS for static sites. Edit directly on GitHub with a
-            clean interface.
-          </DialogDescription>
+          <DialogDescription>{BRAND.tagline}</DialogDescription>
         </DialogHeader>
 
         <div className="rounded-lg border">
@@ -140,24 +138,24 @@ export function About() {
           <Row
             label="Website"
             value={
-              <ExternalLink href="https://pagescms.org">
-                pagescms.org
+              <ExternalLink href={BRAND.siteUrl}>
+                {BRAND.siteUrl.replace(/^https?:\/\//, "")}
               </ExternalLink>
             }
           />
           <Row
-            label="Docs"
+            label="Help"
             value={
-              <ExternalLink href="https://pagescms.org/docs">
-                pagescms.org/docs
+              <ExternalLink href={`mailto:${BRAND.supportEmail}`}>
+                {BRAND.supportEmail}
               </ExternalLink>
             }
           />
           <Row
-            label="GitHub"
+            label="Built on"
             value={
-              <ExternalLink href="https://github.com/pagescms/pagescms">
-                pagescms/pagescms
+              <ExternalLink href={BRAND.upstream.url}>
+                {BRAND.upstream.name}
               </ExternalLink>
             }
           />

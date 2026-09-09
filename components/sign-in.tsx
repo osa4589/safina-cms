@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { BRAND } from "@/lib/brand";
 import { useSearchParams } from "next/navigation";
 import { emailOtp, signIn } from "@/lib/auth-client";
 import { getAuthCallbackURL, getSafeRedirect } from "@/lib/auth-redirect";
@@ -32,7 +33,7 @@ export function SignIn() {
   const getErrorMessage = (value: string) => {
     if (value.toLowerCase() !== "unable_to_get_user_info") return value;
     return [
-      "GitHub denied profile access. Re-authorize Pages CMS in GitHub Settings > Applications > Authorized GitHub Apps / Authorized OAuth Apps, then try again.",
+      `GitHub denied profile access. Re-authorize ${BRAND.name} in GitHub Settings > Applications > Authorized GitHub Apps / Authorized OAuth Apps, then try again.`,
       "https://github.com/settings/applications",
     ].join(" ");
   };
@@ -136,7 +137,7 @@ export function SignIn() {
       By clicking continue, you agree to our{" "}
       <a
         className="underline hover:decoration-muted-foreground/50"
-        href="https://pagescms.org/terms"
+        href={BRAND.termsUrl}
         target="_blank"
       >
         Terms of Service
@@ -144,7 +145,7 @@ export function SignIn() {
       and{" "}
       <a
         className="underline hover:decoration-muted-foreground/50"
-        href="https://pagescms.org/privacy"
+        href={BRAND.privacyUrl}
         target="_blank"
       >
         Privacy Policy
@@ -178,7 +179,7 @@ export function SignIn() {
         ) : (
           <div className="space-y-6">
             <h1 className="text-lg font-medium tracking-tight text-center">
-              Sign in to Pages CMS
+              Sign in to {BRAND.name}
             </h1>
             <Button
               type="button"

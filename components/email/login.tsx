@@ -13,11 +13,12 @@ import {
   Tailwind,
 } from "@react-email/components";
 import { emailTheme } from "@/components/email/theme";
+import { BRAND } from "@/lib/brand";
 
 export const LoginEmailTemplate = ({
   email,
   otp,
-  preview = "Sign in to Pages CMS",
+  preview = `Sign in to ${BRAND.name}`,
 }: {
   email: string;
   otp: string;
@@ -47,7 +48,7 @@ export const LoginEmailTemplate = ({
                 src={`${baseUrl}/images/email-logo.png`}
                 width="42"
                 height="42"
-                alt="Pages CMS"
+                alt={BRAND.name}
                 className="my-0 mx-auto"
               />
             </Section>
@@ -55,7 +56,7 @@ export const LoginEmailTemplate = ({
               className="text-[24px] font-semibold p-0 my-[30px] mx-0 text-center tracking-tight"
               style={{ color: emailTheme.foreground }}
             >
-              Sign in to Pages CMS
+              Sign in to {BRAND.name}
             </Heading>
             <Text
               className="text-[16px] leading-[24px]"
