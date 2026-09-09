@@ -378,8 +378,13 @@ export async function POST(
     // ref, is whatever the owner declared in .pages.yml for this context — never
     // what the client's browser sent. Without this, a collaborator confined to
     // `draft` could dispatch any workflow in the repo on `main`.
+    // sync + a short TTL: the cached row otherwise refreshes only on a push
+    // webhook, and an action the owner deleted from .pages.yml must stop being
+    // dispatchable promptly. Dispatches are rare; one getContent a minute is nothing.
     const config = await getConfig(params.owner, params.repo, params.branch, {
       getToken: async () => token,
+      sync: true,
+      ttlMs: 60_000,
     });
     if (!config) {
       throw createHttpError(`Configuration not found for ${params.owner}/${params.repo}/${params.branch}.`, 404);

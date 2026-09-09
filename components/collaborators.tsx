@@ -72,7 +72,6 @@ type AddCollaboratorState = {
 function InviteCollaboratorsDialog({
   owner,
   repo,
-  branch,
   state,
   action,
   open,
@@ -86,8 +85,6 @@ function InviteCollaboratorsDialog({
 }: {
   owner: string;
   repo: string;
-  /* Pre-fills the confinement box with the branch the owner is looking at. */
-  branch?: string | null;
   state: AddCollaboratorState;
   action: (payload: FormData) => void;
   open: boolean;
@@ -140,7 +137,6 @@ function InviteCollaboratorsDialog({
             <Input
               name="branch"
               placeholder="Branch (e.g. draft) — leave empty for the whole repository"
-              defaultValue={branch ?? ""}
               autoComplete="off"
             />
             <p className="text-xs text-muted-foreground">
@@ -340,7 +336,6 @@ export function Collaborators({
           <InviteCollaboratorsDialog
             owner={owner}
             repo={repo}
-            branch={branch}
             state={addCollaboratorState}
             action={addCollaboratorAction}
             open={inviteDialogOpen}
@@ -528,7 +523,6 @@ export function Collaborators({
               <InviteCollaboratorsDialog
                 owner={owner}
                 repo={repo}
-                branch={branch}
                 state={addCollaboratorState}
                 action={addCollaboratorAction}
                 open={inviteDialogOpen}

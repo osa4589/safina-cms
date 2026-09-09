@@ -66,6 +66,12 @@ function MediaUploadRoot({ children, path, onUpload, media, extensions, multiple
   const handleFiles = useCallback(async (files: File[]) => {
     try {
       for (const file of files) {
+        /* Same limit as the server's 413, applied before the file is even read:
+           no wait, no base64 of 12 MB in the browser, and the same sentence. */
+        if (file.size > MAX_UPLOAD_BYTES) {
+          toast.error(`"${file.name}" is larger than ${MAX_UPLOAD_MB} MB. Resize or compress it first — most photos can be under 1 MB with no visible difference.`);
+          continue;
+        }
         const uploadFilename = getUploadFileName(
           file.name,
           rename ?? configMedia?.rename,
@@ -258,6 +264,10 @@ function MediaUploadDropZone({ children, className }: MediaUploadDropZoneProps) 
     </div>
   );
 }
+
+/* Mirrors MAX_MEDIA_MB in the files route; the server is still the authority. */
+const MAX_UPLOAD_MB = 10;
+const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
 
 export const MediaUpload = Object.assign(MediaUploadRoot, {
   Trigger: MediaUploadTrigger,

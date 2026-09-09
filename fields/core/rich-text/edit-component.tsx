@@ -801,15 +801,14 @@ const EditComponent = forwardRef(
             }),
           },
         );
-        if (!response.ok) {
+        /* Read the body even on failure: a 413 carries the sentence that tells the
+           client what to do ("larger than 10 MB — resize or compress it"), and the
+           old status/statusText throw reduced it to "413 Payload Too Large". */
+        const payload = (await response.json().catch(() => null)) as ApiResponse<FileSaveData> | null;
+        if (!response.ok || !payload || payload.status !== "success") {
           throw new Error(
-            `Failed to upload file: ${response.status} ${response.statusText}`,
+            payload?.message || `Failed to upload file: ${response.status} ${response.statusText}`,
           );
-        }
-
-        const payload = (await response.json()) as ApiResponse<FileSaveData>;
-        if (payload.status !== "success") {
-          throw new Error(payload.message);
         }
 
         const uploadedPath = payload.data.path || targetPath;

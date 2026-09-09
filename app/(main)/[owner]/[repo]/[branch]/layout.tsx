@@ -41,7 +41,9 @@ export default async function Layout({
   let errorMessage = null;
 
   try {
-    const { token } = await getToken(user, owner, repo);
+    // Pass the branch: this is where a confined collaborator must be stopped, or
+    // the OTHER branch's parsed .pages.yml is shipped to their browser anyway.
+    const { token } = await getToken(user, owner, repo, false, decodedBranch);
     const syncedConfig = await getConfig(
       owner,
       repo,

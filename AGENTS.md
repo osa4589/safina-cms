@@ -69,13 +69,15 @@ Modified upstream files (keep these diffs minimal):
 behind their live site*. A body without it is a `400`. The column shipped in the schema
 in July and nothing wrote it, so every client provisioned before this got full-repo
 access; the confinement itself is enforced in `lib/token.ts` via `lib/branch-scope.ts`.
-Re-provisioning an existing email **updates** the branch — it is the only way to change
-it from outside the app (the owner's invite dialog can also set it).
+Re-provisioning an existing email **updates** the branch. **In this deployment that is
+the only way to set or change one**: the invite dialog in the app also has a branch box,
+but it is usable only by a signed-in account with a linked GitHub identity that can push
+to the repo, and nobody here has one (the owner signs in by email).
 
 
 ```
 Authorization: Bearer <PROVISION_SERVICE_TOKEN>
-{ "repo": "safina-clients/<slug>", "email": "client@example.com", "name": "Client" }
+{ "repo": "safina-clients/<slug>", "email": "client@example.com", "name": "Client", "branch": "draft" }   // or "branch": null — deliberately the whole repo, live branch included
 ```
 
 Returns `{ status: "created" | "existing", inviteUrl }`. **Idempotent** — backed
@@ -177,6 +179,13 @@ verifying it.** Any transient server error burns the user's one-time code, and
 re-entering it presents as an endless redirect to sign-in. Upstream ordering bug; moot
 while sign-in is healthy, but worth reporting.
 
+**9. A GitHub token that can only READ the repo is no longer authority over it.**
+`canAccessRepoWithToken` returns true only with `permissions.push` (2026-09-09). Before,
+`repos.get` succeeding — which it does for ANY token on a public repo — made the user's own
+token win in `getToken`, skipping collaborator and branch confinement. Consequence: a
+GitHub-linked user with pull-only access and no collaborator row now gets "Access denied"
+where upstream let them browse. Deliberate; add a collaborator row if they should edit.
+
 ## Known gaps
 
 - **Pre-existing upstream security hole:** `middleware.ts` returns early for any
@@ -192,9 +201,11 @@ while sign-in is healthy, but worth reporting.
 
 ```bash
 npm test          # node:test via tsx
-npm run lint      # baseline: 0 errors, 15 pre-existing upstream warnings
+npm run lint      # baseline: 0 errors, 14 pre-existing upstream warnings (this file said 15 until 2026-09-09; measured at 2ee1106 and after the hardening commits: 14, identical set)
 npx tsc --noEmit
 ```
 
-Do not "fix" the 15 warnings — they are upstream's and the baseline depends on
-that count staying put.
+Do not "fix" the 14 warnings — they are upstream's and the baseline depends on
+that count staying put. If a change of yours moves the number, MEASURE which site
+(`eslint . -f json` before and after, diff the (file, rule, message) triples) and say so
+here — an earlier note here guessed the cause and was wrong.

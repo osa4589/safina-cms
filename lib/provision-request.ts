@@ -14,8 +14,15 @@ export type ParseResult = { ok: true; value: ProvisionValue } | { ok: false; err
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 /* A conservative subset of git's ref rules: what a human would actually name a
-   branch. Rejects "..", leading "-" or ".", control characters and spaces. */
+   branch. The pattern rejects leading "-"/".", control characters and spaces;
+   GIT_REFUSES catches what the pattern lets through but `git check-ref-format`
+   does not — a trailing "/" or ".", a ".lock" suffix, "//", a dot-leading
+   component. A client confined to a branch git cannot have can never load the
+   repo, so this is checked here, at the only door. */
 const BRANCH_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,119}$/;
+const GIT_REFUSES = /(^|\/)\.|\.lock(\/|$)|\/\/|[\/.]$/;
+export const isPlausibleBranchName = (value: string) =>
+  BRANCH_PATTERN.test(value) && !value.includes("..") && !GIT_REFUSES.test(value);
 
 export const parseProvisionBody = (body: unknown): ParseResult => {
   if (!body || typeof body !== "object") return { ok: false, error: "body must be a JSON object" };
@@ -38,7 +45,7 @@ export const parseProvisionBody = (body: unknown): ParseResult => {
     };
   } else if (branch === null) {
     parsedBranch = null;
-  } else if (typeof branch === "string" && BRANCH_PATTERN.test(branch.trim()) && !branch.includes("..")) {
+  } else if (typeof branch === "string" && isPlausibleBranchName(branch.trim())) {
     parsedBranch = branch.trim();
   } else {
     return { ok: false, error: "branch must be a plain branch name (letters, digits, . _ / -) or null" };

@@ -2,6 +2,7 @@
 
 import { headers } from "next/headers";
 import { BRAND } from "@/lib/brand";
+import { isPlausibleBranchName } from "@/lib/provision-request";
 import { auth } from "@/lib/auth";
 import { getInstallationRepos, getInstallations } from "@/lib/github-app";
 import { requireGithubRepoWriteAccess } from "@/lib/authz-server";
@@ -72,7 +73,7 @@ const handleAddCollaborator = async (prevState: any, formData: FormData) => {
 			repo: z.string().trim().min(1),
 			// Empty means the whole repository. Anything else confines the person
 			// to that one branch (enforced in lib/token.ts, not just hidden in the UI).
-			branch: z.string().trim().max(120).regex(/^([A-Za-z0-9][A-Za-z0-9._/-]*)?$/, "Branch must be a plain branch name").refine((v) => !v.includes(".."), "Branch must be a plain branch name").optional().nullable(),
+			branch: z.string().trim().max(120).refine((v) => v === "" || isPlausibleBranchName(v), "Branch must be a plain branch name git would accept").optional().nullable(),
 		}).safeParse({
 			owner: formData.get("owner"),
 			repo: formData.get("repo"),
@@ -96,6 +97,7 @@ const handleAddCollaborator = async (prevState: any, formData: FormData) => {
     const errors: string[] = [];
     let immediateAccessCount = 0;
     let pendingInviteCount = 0;
+    const reconfinedMessages: string[] = [];
 
     for (const email of emails) {
       const normalizedEmail = normalizeEmail(email);
@@ -108,12 +110,8 @@ const handleAddCollaborator = async (prevState: any, formData: FormData) => {
       ),
 			});
       if (collaborator) {
-        // Re-inviting is how the owner changes someone's branch from the app.
-        if (collaborator.branch !== branch) {
-          await db.update(collaboratorTable)
-            .set({ branch })
-            .where(eq(collaboratorTable.id, collaborator.id));
-        }
+        // Link first, then confine: a row whose branch changes must not stay
+        // unlinked from an account that already exists for that email.
         if (existingUser && collaborator.userId !== existingUser.id) {
           const updated = await db.update(collaboratorTable)
             .set({ userId: existingUser.id })
@@ -122,6 +120,21 @@ const handleAddCollaborator = async (prevState: any, formData: FormData) => {
           if (updated.length > 0) {
             createdCollaborators.push(...updated);
             immediateAccessCount += 1;
+          }
+        }
+        // Re-inviting is how the owner changes someone's branch from the app,
+        // so a changed branch is a success to report, not "already invited".
+        if (collaborator.branch !== branch) {
+          const reconfined = await db.update(collaboratorTable)
+            .set({ branch })
+            .where(eq(collaboratorTable.id, collaborator.id))
+            .returning();
+          if (reconfined.length > 0) {
+            if (!createdCollaborators.some((c) => c.id === collaborator.id)) createdCollaborators.push(...reconfined);
+            reconfinedMessages.push(branch
+              ? `${normalizedEmail} is now confined to "${branch}".`
+              : `${normalizedEmail} now has the whole repository.`);
+            continue;
           }
         }
         errors.push(`${normalizedEmail} is already invited to "${owner}/${repo}".`);
@@ -205,14 +218,16 @@ const handleAddCollaborator = async (prevState: any, formData: FormData) => {
     }
 
 		return {
-      message:
+      message: reconfinedMessages.length > 0 && immediateAccessCount + pendingInviteCount === 0
+        ? reconfinedMessages.join(" ")
+        : (reconfinedMessages.length > 0 ? reconfinedMessages.join(" ") + " " : "") + (
         immediateAccessCount > 0 && pendingInviteCount > 0
           ? `${immediateAccessCount} collaborator${immediateAccessCount === 1 ? "" : "s"} added immediately and ${pendingInviteCount} invite${pendingInviteCount === 1 ? "" : "s"} sent for "${owner}/${repo}".`
           : immediateAccessCount > 0
             ? `${immediateAccessCount} collaborator${immediateAccessCount === 1 ? "" : "s"} added to "${owner}/${repo}".`
             : pendingInviteCount === 1
               ? `${createdCollaborators[0].email} invited to "${owner}/${repo}".`
-              : `${pendingInviteCount} collaborators invited to "${owner}/${repo}".`,
+              : `${pendingInviteCount} collaborators invited to "${owner}/${repo}".`),
 			data: createdCollaborators,
       errors
 		};

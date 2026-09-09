@@ -25,9 +25,9 @@ test("a scoped collaborator may NOT act on any other branch", () => {
   assert.equal(isBranchAllowed("draft", "Draft-2"), false);
 });
 
-test("the comparison is case-insensitive, because URLs are not git", () => {
-  assert.equal(isBranchAllowed("draft", "DRAFT"), true);
-  assert.equal(isBranchAllowed("Draft", "draft"), true);
+test("the comparison is exact, because git refs are — `Draft` is not `draft`", () => {
+  assert.equal(isBranchAllowed("draft", "DRAFT"), false);
+  assert.equal(isBranchAllowed("Draft", "draft"), false);
 });
 
 /* Repo-level callers (listing repos, listing collaborators) pass no branch.

@@ -25,7 +25,7 @@ import { requireApiUserSession } from "@/lib/session-server";
  */
 
 const MAX_MEDIA_MB = 10;
-const MAX_MEDIA_BASE64_LENGTH = Math.ceil((MAX_MEDIA_MB * 1024 * 1024 * 4) / 3);
+const MAX_MEDIA_BASE64_LENGTH = 4 * Math.ceil((MAX_MEDIA_MB * 1024 * 1024) / 3);   // base64 pads to a multiple of 4
 
 export async function POST(
   request: Request,

@@ -181,8 +181,12 @@ const canAccessRepoWithToken = async (
 ) => {
   try {
     const octokit = createOctokitInstance(token);
-    await octokit.rest.repos.get({ owner, repo });
-    return true;
+    const response = await octokit.rest.repos.get({ owner, repo });
+    /* repos.get succeeds for ANY authenticated token on a public repo, and
+       linking a GitHub account is open to every signed-in user — so "can read
+       it" would let a client step around collaborator/branch confinement on a
+       public site. Only push permission makes the user's own token authoritative. */
+    return Boolean(response.data.permissions?.push);
   } catch {
     return false;
   }

@@ -70,7 +70,8 @@ test("accepts and trims a plain branch name", () => {
 });
 
 test("rejects branch names git would refuse or that could traverse", () => {
-  for (const bad of ["", "-x", ".hidden", "a b", "a..b", "refs/heads/../x", 42, true]) {
+  for (const bad of ["", "-x", ".hidden", "a b", "a..b", "refs/heads/../x", 42, true,
+                     "draft/", "draft.", "a//b", "a/.b", "a.lock", "a/b.lock"]) {
     const result = parseProvisionBody({ repo: "osa4589/example-client", email: "a@example.com", branch: bad });
     assert.equal(result.ok, false, `branch ${JSON.stringify(bad)} must be rejected`);
   }

@@ -5,8 +5,10 @@ import { createOctokitInstance } from "@/lib/utils/octokit";
 import { getToken } from "@/lib/token";
 import { createHttpError, toErrorResponse } from "@/lib/api-error";
 import { requireApiUserSession } from "@/lib/session-server";
-import { resolveActionRef } from "@/lib/actions";
+import { findDeclaredAction, resolveActionRef } from "@/lib/actions";
 import { hasGithubIdentity } from "@/lib/authz-shared";
+import { requireGithubRepoWriteAccess } from "@/lib/authz-server";
+import { getConfig } from "@/lib/config-store";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -278,8 +280,19 @@ export async function POST(
       });
     }
 
-    if (!isGithubUser) {
-      throw createHttpError("Only GitHub users can run this action again.", 403);
+    // A linked GitHub account is not authority; push access to this repo is.
+    await requireGithubRepoWriteAccess(user, params.owner, params.repo, "Only the site's GitHub owners can run this action again.");
+
+    // Re-validate against .pages.yml exactly as a fresh dispatch would: the stored
+    // row is history, not permission — the owner may have removed the action since.
+    const config = await getConfig(params.owner, params.repo, params.branch, {
+      getToken: async () => token,
+      sync: true,
+      ttlMs: 60_000,
+    });
+    const declared = config ? findDeclaredAction(config.object, row.contextType, row.contextName, row.actionName) : null;
+    if (!declared) {
+      throw createHttpError(`Action "${row.actionName}" is no longer defined in .pages.yml for this ${row.contextType}.`, 403);
     }
 
     const originalPayload = row.payload as {
@@ -289,7 +302,7 @@ export async function POST(
       inputs?: Record<string, string | number | boolean>;
     } | null;
 
-    const workflowRef = resolveActionRef(originalPayload?.repository?.workflowRef ?? row.workflowRef, params.branch);
+    const workflowRef = resolveActionRef(declared.ref, params.branch);
     const sha = await resolveWorkflowSha(octokit, params.owner, params.repo, workflowRef);
     const timestamp = new Date();
     const payload = {
@@ -335,7 +348,7 @@ export async function POST(
       contextType: payload.context.type,
       contextName: payload.context.name,
       contextPath: payload.context.path,
-      workflow: row.workflow,
+      workflow: declared.workflow,   // what is dispatched below — findWorkflowRun matches on this
       status: "dispatching",
       triggeredBy: payload.triggeredBy,
       payload,
@@ -346,7 +359,7 @@ export async function POST(
     await octokit.rest.actions.createWorkflowDispatch({
       owner: params.owner,
       repo: params.repo,
-      workflow_id: row.workflow,
+      workflow_id: declared.workflow,
       ref: workflowRef,
       inputs: {
         payload: JSON.stringify(payload),

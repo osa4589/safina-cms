@@ -14,14 +14,17 @@
  * collaborator, and a caller that is not branch-scoped (listing repos or
  * collaborators passes no branch; failing closed there would lock a scoped
  * client out of the app entirely) — and CLOSED for everything else.
- * Case-insensitive: git compares refs exactly, humans and URLs do not. */
+ * EXACT comparison: git refs are case-sensitive, so `draft` and `Draft` can be
+ * two different branches, and a client confined to one must not reach the
+ * other. (An earlier version folded case "because URLs are not git"; that
+ * was the wrong side to be lenient on.) */
 const isBranchAllowed = (
   scopedBranch: string | null | undefined,
   requestedBranch: string | null | undefined,
 ): boolean => {
   if (!scopedBranch) return true;
   if (!requestedBranch) return true;
-  return scopedBranch.toLowerCase() === requestedBranch.toLowerCase();
+  return scopedBranch === requestedBranch;
 };
 
 export { isBranchAllowed };
