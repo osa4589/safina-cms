@@ -9,7 +9,7 @@ import { getBaseUrl } from "@/lib/base-url";
 import { repairLegacyGithubStubOnLogin } from "@/lib/github-legacy-stub-repair";
 import { sendEmail } from "@/lib/mailer";
 import { syncGithubProfileOnLogin } from "@/lib/github-account";
-import { bindCollaboratorInvitesToUser } from "@/lib/collaborator-access";
+import { bindCollaboratorInvitesToUser, isKnownOrInvitedEmail } from "@/lib/collaborator-access";
 import { LoginEmailTemplate } from "@/components/email/login";
 import { render } from "@react-email/render";
 
@@ -164,6 +164,19 @@ export const auth = betterAuth({
       resendStrategy: "reuse",
       sendVerificationOTP: async ({ email, otp, type }) => {
         if (type !== "sign-in") return;
+
+        /* Sign-up is by invitation only. better-auth creates the user on the
+           first successful code, so refusing to SEND a code to an unknown
+           address is what keeps strangers from minting accounts — without
+           touching the invite flow, where the collaborator or invite row
+           already exists before the person ever sees the sign-in page. The UI
+           still reports "code sent" either way, so nothing can be enumerated. */
+        if (!(await isKnownOrInvitedEmail(email))) {
+          console.warn("[auth] sign-in code refused: address is not a user, collaborator or invitee", {
+            emailDomain: email.split("@")[1] ?? "?",
+          });
+          return;
+        }
 
         const subject = `Your ${BRAND.name} sign-in code is ${otp}`;
         const html = await render(
