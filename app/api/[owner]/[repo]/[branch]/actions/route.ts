@@ -5,7 +5,8 @@ import { createOctokitInstance } from "@/lib/utils/octokit";
 import { getToken } from "@/lib/token";
 import { createHttpError, toErrorResponse } from "@/lib/api-error";
 import { requireApiUserSession } from "@/lib/session-server";
-import { resolveActionRef } from "@/lib/actions";
+import { findDeclaredAction, resolveActionRef } from "@/lib/actions";
+import { getConfig } from "@/lib/config-store";
 import { hasGithubIdentity } from "@/lib/authz-shared";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -364,13 +365,31 @@ export async function POST(
       inputs?: Record<string, string | number | boolean>;
     };
 
-    const action = body.action;
+    const requested = body.action;
     const actionContext = body.context;
-    if (!action?.name || !action?.label || !action?.workflow) {
-      throw createHttpError("Action name, label, and workflow are required.", 400);
+    if (!requested?.name) {
+      throw createHttpError("Action name is required.", 400);
     }
     if (!actionContext?.kind) {
       throw createHttpError("Action context kind is required.", 400);
+    }
+
+    // The request may only NAME an action. Which workflow file runs, on which
+    // ref, is whatever the owner declared in .pages.yml for this context — never
+    // what the client's browser sent. Without this, a collaborator confined to
+    // `draft` could dispatch any workflow in the repo on `main`.
+    const config = await getConfig(params.owner, params.repo, params.branch, {
+      getToken: async () => token,
+    });
+    if (!config) {
+      throw createHttpError(`Configuration not found for ${params.owner}/${params.repo}/${params.branch}.`, 404);
+    }
+    const action = findDeclaredAction(config.object, actionContext.kind, actionContext.name, requested.name);
+    if (!action) {
+      throw createHttpError(
+        `Action "${requested.name}" is not defined in .pages.yml for this ${actionContext.kind}.`,
+        403,
+      );
     }
 
     const workflowRef = resolveActionRef(action.ref, params.branch);
