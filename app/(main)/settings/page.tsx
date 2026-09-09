@@ -63,22 +63,27 @@ export default async function Page() {
             githubUsername={user.githubUsername}
           />
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Authentication</CardTitle>
-              <CardDescription>
-                Your sign-in methods and linked identity providers.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Identities
-                email={user.email}
-                githubConnected={githubConnected}
-                githubUsername={user.githubUsername}
-                githubManageUrl={githubManageUrl}
-              />
-            </CardContent>
-          </Card>
+          {/* Only shown once a GitHub identity is already linked (the studio's own
+              admins). A client never sees a "Connect GitHub" button: linking any
+              account used to flip hasGithubIdentity and reveal owner-only pages. */}
+          {githubConnected && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Authentication</CardTitle>
+                <CardDescription>
+                  Your sign-in methods and linked identity providers.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Identities
+                  email={user.email}
+                  githubConnected={githubConnected}
+                  githubUsername={user.githubUsername}
+                  githubManageUrl={githubManageUrl}
+                />
+              </CardContent>
+            </Card>
+          )}
 
           {githubConnected && (
             <Card>

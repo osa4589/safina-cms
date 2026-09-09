@@ -17,7 +17,6 @@ const jetbrainsMono = JetBrains_Mono({
   variable: "--font-jetbrains-mono",
 });
 const appUrl = getBaseUrl();
-const socialImage = "/images/social-card.jpg";
 const description = BRAND.tagline;
 
 export const metadata: Metadata = {
@@ -36,20 +35,14 @@ export const metadata: Metadata = {
     siteName: BRAND.name,
     title: BRAND.name,
     description,
-    images: [
-      {
-        url: socialImage,
-        width: 1200,
-        height: 630,
-        alt: `${BRAND.name} social card`,
-      },
-    ],
+    /* No og:image on purpose: the only card we have is the studio's sales pitch
+       ("$500 flat"), and a client pasting this URL to a colleague should get an
+       editor, not an advertisement. A neutral card can be added here later. */
   },
   twitter: {
-    card: "summary_large_image",
+    card: "summary",
     title: BRAND.name,
     description,
-    images: [socialImage],
   },
 };
 

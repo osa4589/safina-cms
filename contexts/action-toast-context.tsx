@@ -35,7 +35,7 @@ type ActionToastContextValue = {
   trackActionRun: (input: TrackActionRunInput) => void;
 };
 
-const STORAGE_KEY = "pages-cms-action-toasts";
+const STORAGE_KEY = "safina-action-toasts";
 const TRACKING_TIMEOUT_MS = 12 * 60 * 60 * 1000;
 
 const ActionToastContext = createContext<ActionToastContextValue | undefined>(undefined);

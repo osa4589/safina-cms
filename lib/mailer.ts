@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { BRAND } from "@/lib/brand";
 import nodemailer from "nodemailer";
 import { sendWithBrevo } from "./mailer-brevo";
 
@@ -122,7 +123,7 @@ export const sendEmail = async ({ to, subject, html, text }: SendEmailInput) => 
       html,
       text,
       from,
-      fromName: getEnv("EMAIL_FROM_NAME") || "Safina Studio",
+      fromName: getEnv("EMAIL_FROM_NAME") || BRAND.name,
     });
     return;
   }

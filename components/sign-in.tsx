@@ -127,6 +127,11 @@ export function SignIn() {
     }
   };
 
+  const [showGithub, setShowGithub] = useState(false);
+  useEffect(() => {
+    setShowGithub(new URLSearchParams(window.location.search).get("github") === "1");
+  }, []);
+
   const resetToFullSignIn = () => {
     setStep("email");
     setOtp("");
@@ -181,6 +186,11 @@ export function SignIn() {
             <h1 className="text-lg font-medium tracking-tight text-center">
               Sign in to {BRAND.name}
             </h1>
+            {/* Clients sign in by emailed code and are told they need no account.
+                GitHub sign-in exists for the studio's own admins; it is reachable
+                at /sign-in?github=1 and otherwise stays out of the client's way. */}
+            {showGithub && (
+              <>
             <Button
               type="button"
               className="w-full"
@@ -209,6 +219,8 @@ export function SignIn() {
                 <span className="bg-background px-2 text-muted-foreground">Or</span>
               </div>
             </div>
+              </>
+            )}
             <form
               className="space-y-2"
               onSubmit={async (event) => {
