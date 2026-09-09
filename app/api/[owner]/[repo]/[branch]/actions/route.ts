@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, isNotNull, ne } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNull, isNotNull, ne } from "drizzle-orm";
 import { db } from "@/db";
 import { actionRunTable } from "@/db/schema";
 import { createOctokitInstance } from "@/lib/utils/octokit";
@@ -53,8 +53,13 @@ const findWorkflowRun = async (
   workflowRef: string,
   startedAt: string,
   claimedRunIds: number[] = [],
+  /* Runs created after this belong to a newer row, never to this one. Without
+     it, a row whose dispatch was rejected (no run of its own) was later handed
+     the NEXT click's run — the next click then showed "queued" forever. */
+  notAfter?: string | null,
 ) => {
   const startedAtMs = Date.parse(startedAt);
+  const notAfterMs = notAfter ? Date.parse(notAfter) + 30_000 : Number.POSITIVE_INFINITY;
   const claimedRunIdsSet = new Set(claimedRunIds);
 
   for (let attempt = 0; attempt < 6; attempt++) {
@@ -70,6 +75,7 @@ const findWorkflowRun = async (
     const run = response.data.workflow_runs
       .filter((item) => (
         Date.parse(item.created_at) >= startedAtMs - 30_000
+        && Date.parse(item.created_at) <= notAfterMs
         && !claimedRunIdsSet.has(item.id)
       ))
       .sort((left, right) => Date.parse(right.created_at) - Date.parse(left.created_at))[0];
@@ -135,6 +141,10 @@ const syncActionRun = async (
   row: typeof actionRunTable.$inferSelect,
 ) => {
   if (!row.workflowRunId) {
+    // A terminal row without a run (its dispatch was rejected) is history, not a
+    // candidate: it must never absorb a run that belongs to a later click.
+    if (row.status === "completed") return row;
+
     const claimedRunIds = await getClaimedWorkflowRunIds(
       row.owner,
       row.repo,
@@ -142,6 +152,13 @@ const syncActionRun = async (
       row.workflowRef,
       row.id,
     );
+    const [nextRow] = await db.select({ createdAt: actionRunTable.createdAt }).from(actionRunTable).where(and(
+      eq(actionRunTable.owner, row.owner),
+      eq(actionRunTable.repo, row.repo),
+      eq(actionRunTable.workflow, row.workflow),
+      eq(actionRunTable.workflowRef, row.workflowRef),
+      gt(actionRunTable.createdAt, row.createdAt),
+    )).orderBy(asc(actionRunTable.createdAt)).limit(1);
     const workflowRun = await findWorkflowRun(
       octokit,
       row.owner,
@@ -150,6 +167,7 @@ const syncActionRun = async (
       row.workflowRef,
       row.createdAt.toISOString(),
       claimedRunIds,
+      nextRow?.createdAt?.toISOString() ?? null,
     );
 
     if (!workflowRun) return row;
@@ -449,15 +467,29 @@ export async function POST(
       updatedAt: timestamp,
     }).returning();
 
-    await octokit.rest.actions.createWorkflowDispatch({
-      owner: params.owner,
-      repo: params.repo,
-      workflow_id: action.workflow,
-      ref: workflowRef,
-      inputs: {
-        payload: JSON.stringify(payload),
-      },
-    });
+    try {
+      await octokit.rest.actions.createWorkflowDispatch({
+        owner: params.owner,
+        repo: params.repo,
+        workflow_id: action.workflow,
+        ref: workflowRef,
+        inputs: {
+          payload: JSON.stringify(payload),
+        },
+      });
+    } catch (error) {
+      /* GitHub refused the dispatch (e.g. the workflow does not declare the
+         `payload` input). Left as "dispatching", this row would sit in the
+         client's history forever AND later absorb the next click's run. */
+      await db.update(actionRunTable).set({
+        status: "completed",
+        conclusion: "failure",
+        failure: { message: error instanceof Error ? error.message : String(error) },
+        updatedAt: new Date(),
+        completedAt: new Date(),
+      }).where(eq(actionRunTable.id, createdRun.id));
+      throw error;
+    }
 
     const workflowRun = await findWorkflowRun(
       octokit,

@@ -356,15 +356,26 @@ export async function POST(
       updatedAt: timestamp,
     }).returning();
 
-    await octokit.rest.actions.createWorkflowDispatch({
-      owner: params.owner,
-      repo: params.repo,
-      workflow_id: declared.workflow,
-      ref: workflowRef,
-      inputs: {
-        payload: JSON.stringify(payload),
-      },
-    });
+    try {
+      await octokit.rest.actions.createWorkflowDispatch({
+        owner: params.owner,
+        repo: params.repo,
+        workflow_id: declared.workflow,
+        ref: workflowRef,
+        inputs: {
+          payload: JSON.stringify(payload),
+        },
+      });
+    } catch (error) {
+      await db.update(actionRunTable).set({
+        status: "completed",
+        conclusion: "failure",
+        failure: { message: error instanceof Error ? error.message : String(error) },
+        updatedAt: new Date(),
+        completedAt: new Date(),
+      }).where(eq(actionRunTable.id, createdRun.id));
+      throw error;
+    }
 
     const workflowRun = await findWorkflowRun(
       octokit,
