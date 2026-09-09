@@ -10,6 +10,7 @@ import {
 } from "@/lib/actions/collaborator";
 import { useRepoHeader } from "@/components/repo/repo-header-context";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { SubmitButton } from "@/components/submit-button";
 import {
   Empty,
@@ -71,6 +72,7 @@ type AddCollaboratorState = {
 function InviteCollaboratorsDialog({
   owner,
   repo,
+  branch,
   state,
   action,
   open,
@@ -84,6 +86,8 @@ function InviteCollaboratorsDialog({
 }: {
   owner: string;
   repo: string;
+  /* Pre-fills the confinement box with the branch the owner is looking at. */
+  branch?: string | null;
   state: AddCollaboratorState;
   action: (payload: FormData) => void;
   open: boolean;
@@ -132,6 +136,18 @@ function InviteCollaboratorsDialog({
             required
             rows={6}
           />
+          <div className="space-y-1.5">
+            <Input
+              name="branch"
+              placeholder="Branch (e.g. draft) — leave empty for the whole repository"
+              defaultValue={branch ?? ""}
+              autoComplete="off"
+            />
+            <p className="text-xs text-muted-foreground">
+              With a branch set, this person can only ever edit that branch —
+              they cannot reach the branch behind the live site.
+            </p>
+          </div>
           {state?.error ? (
             <p className="text-sm font-medium text-destructive">
               {state.error}
@@ -324,6 +340,7 @@ export function Collaborators({
           <InviteCollaboratorsDialog
             owner={owner}
             repo={repo}
+            branch={branch}
             state={addCollaboratorState}
             action={addCollaboratorAction}
             open={inviteDialogOpen}
@@ -511,6 +528,7 @@ export function Collaborators({
               <InviteCollaboratorsDialog
                 owner={owner}
                 repo={repo}
+                branch={branch}
                 state={addCollaboratorState}
                 action={addCollaboratorAction}
                 open={inviteDialogOpen}

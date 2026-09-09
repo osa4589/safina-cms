@@ -1,3 +1,4 @@
+import { and, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { collaboratorTable } from "@/db/schema";
 import { createCollaboratorInviteUrl } from "@/lib/collaborator-invite";
@@ -30,7 +31,7 @@ export async function POST(request: Request) {
 
     const parsed = parseProvisionBody(raw);
     if (!parsed.ok) return json({ error: parsed.error }, 400);
-    const { owner, repo, email, name } = parsed.value;
+    const { owner, repo, email, name, branch } = parsed.value;
 
     const installation = await resolveInstallation(owner, repo);
     if (!installation) {
@@ -55,11 +56,29 @@ export async function POST(request: Request) {
         owner,
         repo,
         email,
+        branch,
       })
       .onConflictDoNothing()
       .returning({ id: collaboratorTable.id });
 
     const status = inserted.length > 0 ? "created" : "existing";
+
+    // Re-provisioning is the ONLY way to change an existing person's branch
+    // from outside the app, so an existing row takes the branch the caller
+    // just asserted rather than keeping whatever it had — otherwise a client
+    // provisioned before confinement existed could never be confined.
+    if (status === "existing") {
+      await db
+        .update(collaboratorTable)
+        .set({ branch })
+        .where(
+          and(
+            sql`lower(${collaboratorTable.owner}) = lower(${owner})`,
+            sql`lower(${collaboratorTable.repo}) = lower(${repo})`,
+            sql`lower(${collaboratorTable.email}) = lower(${email})`,
+          ),
+        );
+    }
 
     const baseUrl = process.env.BASE_URL ?? "https://cms.safinastudio.com";
     const inviteUrl = await createCollaboratorInviteUrl({ email, owner, repo, baseUrl });
@@ -70,12 +89,12 @@ export async function POST(request: Request) {
       // Access already exists; only delivery failed. Return the link so the
       // caller can retry mail or deliver it another way.
       return json(
-        { status, inviteUrl, error: `invite created but email failed: ${(error as Error).message}` },
+        { status, branch, inviteUrl, error: `invite created but email failed: ${(error as Error).message}` },
         502,
       );
     }
 
-    return json({ status, inviteUrl }, 200);
+    return json({ status, branch, inviteUrl }, 200);
   } catch (error) {
     // The caller is a machine that parses JSON, so an unexpected throw must not
     // fall through to Next's HTML 500 page. The message is deliberately generic:

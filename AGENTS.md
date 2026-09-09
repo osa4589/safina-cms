@@ -45,6 +45,13 @@ New files (safe on rebase):
   rejects PKCS#1 outright).
 - `lib/provision-request.ts`, `lib/collaborator-invite.ts`
 - `app/api/provision/route.ts` — the provisioning endpoint.
+- `lib/brand.ts` — every client-visible product string. Nothing else may hard-code a
+  product name; upstream's leaked into the sign-in page, tab title, OTP subject and the
+  Terms/Privacy links (which pointed at a third party) before this existed.
+- `lib/branch-scope.ts` — the collaborator branch boundary (see traps).
+- `lib/actions.ts` `resolveAllowedActions` / `findDeclaredAction` — the actions endpoint
+  only dispatches what `.pages.yml` declares for the requesting context; the request
+  body may name an action, never choose the workflow file or ref.
 - `test/*.test.ts` — this repo had **no test suite** before the fork.
 
 Modified upstream files (keep these diffs minimal):
@@ -56,6 +63,15 @@ Modified upstream files (keep these diffs minimal):
 - `db/migrations/0000_*.sql`, `0003_*.sql` — schema rewrite (see traps).
 
 ## `POST /api/provision`
+
+**`branch` is REQUIRED (since 2026-09-09)** — a branch name to confine the person to
+(`"draft"`), or `null` to deliberately grant the whole repository *including the branch
+behind their live site*. A body without it is a `400`. The column shipped in the schema
+in July and nothing wrote it, so every client provisioned before this got full-repo
+access; the confinement itself is enforced in `lib/token.ts` via `lib/branch-scope.ts`.
+Re-provisioning an existing email **updates** the branch — it is the only way to change
+it from outside the app (the owner's invite dialog can also set it).
+
 
 ```
 Authorization: Bearer <PROVISION_SERVICE_TOKEN>

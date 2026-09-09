@@ -1,6 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
+import { BRAND } from "@/lib/brand";
 import { auth } from "@/lib/auth";
 import { getInstallationRepos, getInstallations } from "@/lib/github-app";
 import { requireGithubRepoWriteAccess } from "@/lib/authz-server";
@@ -48,7 +49,7 @@ const assertRepoInInstallation = async (
       installationRepo.name?.toLowerCase() === repo.toLowerCase()
     )
   );
-  if (!isInstalledForRepo) throw new Error(`"${owner}/${repo}" is not part of your Pages CMS installation.`);
+  if (!isInstalledForRepo) throw new Error(`"${owner}/${repo}" is not part of your ${BRAND.name} installation.`);
 
   return {
     repoAccess,
@@ -66,18 +67,22 @@ const handleAddCollaborator = async (prevState: any, formData: FormData) => {
     const user = session?.user;
 		if (!user) throw new Error("You must be signed in with GitHub to invite collaborators.");
 
-		// TODO: add support for branches
 		const ownerAndRepoValidation = z.object({
 			owner: z.string().trim().min(1),
 			repo: z.string().trim().min(1),
+			// Empty means the whole repository. Anything else confines the person
+			// to that one branch (enforced in lib/token.ts, not just hidden in the UI).
+			branch: z.string().trim().max(120).regex(/^([A-Za-z0-9][A-Za-z0-9._/-]*)?$/, "Branch must be a plain branch name").refine((v) => !v.includes(".."), "Branch must be a plain branch name").optional().nullable(),
 		}).safeParse({
 			owner: formData.get("owner"),
-			repo: formData.get("repo")
+			repo: formData.get("repo"),
+			branch: formData.get("branch"),
 		});
-		if (!ownerAndRepoValidation.success) throw new Error ("Invalid owner and/or repo");
+		if (!ownerAndRepoValidation.success) throw new Error (ownerAndRepoValidation.error.issues[0]?.message ?? "Invalid owner and/or repo");
 
 		const owner = ownerAndRepoValidation.data.owner;
 		const repo = ownerAndRepoValidation.data.repo;
+		const branch = ownerAndRepoValidation.data.branch || null;
 
     const emailsValidation = parseInviteEmails(formData.get("emails") ?? formData.get("email"));
 		if (!emailsValidation.success || emailsValidation.data.length === 0) throw new Error("Invalid email list");
@@ -103,6 +108,12 @@ const handleAddCollaborator = async (prevState: any, formData: FormData) => {
       ),
 			});
       if (collaborator) {
+        // Re-inviting is how the owner changes someone's branch from the app.
+        if (collaborator.branch !== branch) {
+          await db.update(collaboratorTable)
+            .set({ branch })
+            .where(eq(collaboratorTable.id, collaborator.id));
+        }
         if (existingUser && collaborator.userId !== existingUser.id) {
           const updated = await db.update(collaboratorTable)
             .set({ userId: existingUser.id })
@@ -136,7 +147,7 @@ const handleAddCollaborator = async (prevState: any, formData: FormData) => {
           );
           await sendEmail({
             to: normalizedEmail,
-            subject: `Join "${owner}/${repo}" on Pages CMS`,
+            subject: `Join "${owner}/${repo}" on ${BRAND.name}`,
             html,
           });
         } catch (error: any) {
@@ -157,7 +168,7 @@ const handleAddCollaborator = async (prevState: any, formData: FormData) => {
           );
           await sendEmail({
             to: normalizedEmail,
-            subject: `You were added to "${owner}/${repo}" on Pages CMS`,
+            subject: `You were added to "${owner}/${repo}" on ${BRAND.name}`,
             html,
           });
         } catch (error: any) {
@@ -173,6 +184,7 @@ const handleAddCollaborator = async (prevState: any, formData: FormData) => {
         repoId: repoAccess.repoId,
         owner: repoAccess.ownerLogin,
         repo: repoAccess.repoName,
+        branch,
         email: normalizedEmail,
         userId: existingUser?.id ?? null,
         invitedBy: user.id
@@ -286,7 +298,7 @@ const handleResendCollaboratorInvite = async (collaboratorId: number, owner: str
 
     await sendEmail({
       to: collaborator.email,
-      subject: `Join "${owner}/${repo}" on Pages CMS`,
+      subject: `Join "${owner}/${repo}" on ${BRAND.name}`,
       html,
     });
 

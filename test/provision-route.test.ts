@@ -7,6 +7,7 @@ test("accepts a well-formed body", () => {
     repo: "osa4589/example-client",
     email: "client@example.com",
     name: "Client Name",
+    branch: "draft",
   });
   assert.equal(result.ok, true);
   if (!result.ok) return;
@@ -19,6 +20,7 @@ test("normalizes the email to lowercase", () => {
   const result = parseProvisionBody({
     repo: "osa4589/example-client",
     email: "  Client@Example.COM  ",
+    branch: null,
   });
   assert.equal(result.ok, true);
   if (!result.ok) return;
@@ -42,4 +44,34 @@ test("rejects a malformed email", () => {
 test("rejects a non-object body", () => {
   const result = parseProvisionBody(null);
   assert.equal(result.ok, false);
+});
+
+/* The branch is the boundary between "edits a draft" and "edits the live site".
+   It used to be silently omitted, which meant silently unconfined. */
+test("rejects a body that does not say which branch", () => {
+  const result = parseProvisionBody({ repo: "osa4589/example-client", email: "a@example.com" });
+  assert.equal(result.ok, false);
+  if (result.ok) return;
+  assert.match(result.error, /branch is required/);
+});
+
+test("accepts an explicit null branch as a deliberate whole-repo grant", () => {
+  const result = parseProvisionBody({ repo: "osa4589/example-client", email: "a@example.com", branch: null });
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(result.value.branch, null);
+});
+
+test("accepts and trims a plain branch name", () => {
+  const result = parseProvisionBody({ repo: "osa4589/example-client", email: "a@example.com", branch: "  draft " });
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(result.value.branch, "draft");
+});
+
+test("rejects branch names git would refuse or that could traverse", () => {
+  for (const bad of ["", "-x", ".hidden", "a b", "a..b", "refs/heads/../x", 42, true]) {
+    const result = parseProvisionBody({ repo: "osa4589/example-client", email: "a@example.com", branch: bad });
+    assert.equal(result.ok, false, `branch ${JSON.stringify(bad)} must be rejected`);
+  }
 });
